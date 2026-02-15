@@ -197,6 +197,69 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/deals/from-interaction - Convert an interaction into a deal
+router.post('/from-interaction', async (req: Request, res: Response) => {
+  try {
+    const { interactionId, Name, Stage, Value, Probability, 'Close Date': CloseDate, Description } = req.body;
+
+    if (!Name) {
+      res.status(400).json({ error: 'Deal name is required' });
+      return;
+    }
+
+    // Get the interaction to pull linked contacts/companies
+    let contactIds: string[] = [];
+    let companyIds: string[] = [];
+    let interactionSubject = '';
+
+    if (interactionId) {
+      const interaction = await getRecord(Tables.Interactions, interactionId);
+      contactIds = interaction.Contact || [];
+      companyIds = interaction.Company || [];
+      interactionSubject = interaction.Subject || '';
+    }
+
+    // Allow overriding contacts/companies from request body
+    if (req.body.Contacts) {
+      contactIds = Array.isArray(req.body.Contacts) ? req.body.Contacts : [req.body.Contacts];
+    }
+    if (req.body.Company) {
+      companyIds = Array.isArray(req.body.Company) ? req.body.Company : [req.body.Company];
+    }
+
+    const fields: Record<string, any> = {
+      Name,
+      Stage: Stage || 'Prospecting',
+      Value: Value || 0,
+      Probability: Probability || 0,
+      'Close Date': CloseDate || '',
+      Owner: req.user!.email,
+      Description: Description || (interactionSubject ? `Created from email: ${interactionSubject}` : ''),
+    };
+    if (contactIds.length > 0) fields.Contacts = contactIds;
+    if (companyIds.length > 0) fields.Company = companyIds;
+
+    const record = await createRecord(Tables.Deals, fields);
+
+    await createRecord(Tables.Activities, {
+      User: req.user!.email,
+      'Action Type': 'created',
+      'Entity Type': 'deal',
+      'Entity ID': record.id,
+      'Entity Name': Name,
+      Timestamp: new Date().toISOString(),
+      Details: interactionId
+        ? `Created deal from interaction: ${interactionSubject || interactionId}`
+        : `Created deal ${Name} (${Stage || 'Prospecting'}) - $${Value || 0}`,
+    });
+
+    res.status(201).json(record);
+  } catch (err: any) {
+    console.error('Create deal from interaction error:', err);
+    res.status(500).json({ error: 'Failed to create deal from interaction' });
+  }
+});
+
 // DELETE /api/deals/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {

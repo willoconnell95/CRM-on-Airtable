@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useInteractions, useCreateInteraction, useDeleteInteraction } from '@/hooks/useInteractions';
+import { useCreateDealFromInteraction } from '@/hooks/useEmail';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -9,7 +10,8 @@ import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageLoader } from '@/components/common/LoadingSpinner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { formatDate, getSentimentColor } from '@/lib/utils';
-import { Plus, Search, MessageSquare, Mail, Phone, Users, FileText, Trash2, Filter } from 'lucide-react';
+import type { Interaction } from '@/types';
+import { Plus, MessageSquare, Mail, Phone, Users, FileText, Trash2, Filter, Target } from 'lucide-react';
 
 const typeIcons: Record<string, any> = {
   email: Mail,
@@ -28,11 +30,14 @@ const typeColors: Record<string, string> = {
 export function InteractionsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showDealForm, setShowDealForm] = useState(false);
+  const [selectedInteraction, setSelectedInteraction] = useState<Interaction | null>(null);
   const { data: interactions, isLoading } = useInteractions(
     typeFilter ? { type: typeFilter } : undefined
   );
   const createInteraction = useCreateInteraction();
   const deleteInteraction = useDeleteInteraction();
+  const createDeal = useCreateDealFromInteraction();
 
   const [form, setForm] = useState({
     Type: 'note' as string,
@@ -43,11 +48,53 @@ export function InteractionsPage() {
     Participants: '',
   });
 
+  const [dealForm, setDealForm] = useState({
+    Name: '',
+    Stage: 'Prospecting',
+    Value: 0,
+    Probability: 10,
+    'Close Date': '',
+    Description: '',
+  });
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     await createInteraction.mutateAsync(form as any);
     setShowCreate(false);
     setForm({ Type: 'note', Subject: '', Notes: '', Sentiment: 'neutral', Date: new Date().toISOString().split('T')[0], Participants: '' });
+  }
+
+  function openDealForm(interaction: Interaction) {
+    setSelectedInteraction(interaction);
+    setDealForm({
+      Name: interaction.Subject || `${interaction.Type} - Deal`,
+      Stage: 'Prospecting',
+      Value: 0,
+      Probability: 10,
+      'Close Date': '',
+      Description: interaction.Notes || `Created from ${interaction.Type}: ${interaction.Subject || ''}`,
+    });
+    setShowDealForm(true);
+  }
+
+  async function handleCreateDeal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedInteraction) return;
+    try {
+      await createDeal.mutateAsync({
+        interactionId: selectedInteraction.id,
+        Name: dealForm.Name,
+        Stage: dealForm.Stage,
+        Value: dealForm.Value,
+        Probability: dealForm.Probability,
+        'Close Date': dealForm['Close Date'],
+        Description: dealForm.Description,
+        Contacts: selectedInteraction.Contact,
+        Company: selectedInteraction.Company,
+      });
+      setShowDealForm(false);
+      setSelectedInteraction(null);
+    } catch {}
   }
 
   if (isLoading) return <PageLoader />;
@@ -110,18 +157,29 @@ export function InteractionsPage() {
                     {interaction['Created By'] && <span>By: {interaction['Created By']}</span>}
                   </div>
                 </div>
-                <button
-                  onClick={() => { if (confirm('Delete this interaction?')) deleteInteraction.mutate(interaction.id); }}
-                  className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 self-start"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex flex-col gap-1 shrink-0 self-start">
+                  <button
+                    onClick={() => openDealForm(interaction)}
+                    className="rounded p-1.5 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
+                    title="Convert to Deal"
+                  >
+                    <Target className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm('Delete this interaction?')) deleteInteraction.mutate(interaction.id); }}
+                    className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
+      {/* Log interaction dialog */}
       <Dialog open={showCreate} onClose={() => setShowCreate(false)}>
         <DialogHeader><DialogTitle>Log Interaction</DialogTitle></DialogHeader>
         <form onSubmit={handleCreate} className="space-y-4">
@@ -164,6 +222,74 @@ export function InteractionsPage() {
             <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button type="submit" disabled={createInteraction.isPending}>
               {createInteraction.isPending ? 'Saving...' : 'Log Interaction'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Convert to deal dialog */}
+      <Dialog open={showDealForm} onClose={() => setShowDealForm(false)}>
+        <DialogHeader><DialogTitle>Convert to Deal</DialogTitle></DialogHeader>
+        {selectedInteraction && (
+          <div className="mb-4 rounded-md bg-gray-50 p-3">
+            <p className="text-xs text-gray-500">From interaction:</p>
+            <p className="text-sm font-medium">{selectedInteraction.Subject || selectedInteraction.Type}</p>
+            <p className="text-xs text-gray-500 mt-1">{formatDate(selectedInteraction.Date)}</p>
+          </div>
+        )}
+        <form onSubmit={handleCreateDeal} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Deal Name</label>
+            <Input
+              value={dealForm.Name}
+              onChange={(e) => setDealForm({ ...dealForm, Name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Stage</label>
+              <Select value={dealForm.Stage} onChange={(e) => setDealForm({ ...dealForm, Stage: e.target.value })}>
+                <option value="Prospecting">Prospecting</option>
+                <option value="Qualification">Qualification</option>
+                <option value="Proposal">Proposal</option>
+                <option value="Negotiation">Negotiation</option>
+                <option value="Closed Won">Closed Won</option>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Value ($)</label>
+              <Input
+                type="number"
+                value={dealForm.Value}
+                onChange={(e) => setDealForm({ ...dealForm, Value: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Probability (%)</label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={dealForm.Probability}
+                onChange={(e) => setDealForm({ ...dealForm, Probability: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Close Date</label>
+              <Input
+                type="date"
+                value={dealForm['Close Date']}
+                onChange={(e) => setDealForm({ ...dealForm, 'Close Date': e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setShowDealForm(false)}>Cancel</Button>
+            <Button type="submit" disabled={createDeal.isPending}>
+              {createDeal.isPending ? 'Creating Deal...' : 'Create Deal'}
             </Button>
           </div>
         </form>

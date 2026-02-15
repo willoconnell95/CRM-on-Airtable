@@ -17,6 +17,7 @@ import relationshipsRoutes from './routes/relationships';
 import activitiesRoutes from './routes/activities';
 import searchRoutes from './routes/search';
 import dashboardRoutes from './routes/dashboard';
+import emailRoutes from './routes/email';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -50,6 +51,7 @@ app.use('/api/relationships', relationshipsRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/email', emailRoutes);
 
 // Serve static client build in production
 if (process.env.NODE_ENV === 'production') {

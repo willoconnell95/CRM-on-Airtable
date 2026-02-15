@@ -8,6 +8,7 @@ import {
   Target,
   Network,
   List,
+  Mail,
   LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
@@ -16,6 +17,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: Users, label: 'Contacts', path: '/contacts' },
   { icon: Building2, label: 'Companies', path: '/companies' },
+  { icon: Mail, label: 'Email Sync', path: '/email' },
   { icon: MessageSquare, label: 'Interactions', path: '/interactions' },
   { icon: Target, label: 'Pipeline', path: '/pipeline' },
   { icon: Network, label: 'Network', path: '/network' },

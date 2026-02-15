@@ -188,3 +188,35 @@ export const DEAL_STAGE_COLORS: Record<string, string> = {
 export const INTERACTION_TYPES = ['email', 'meeting', 'call', 'note'] as const;
 
 export const SENTIMENT_OPTIONS = ['positive', 'neutral', 'negative'] as const;
+
+export interface EmailContact {
+  name: string;
+  address: string;
+}
+
+export interface DealSignal {
+  score: number;
+  keywords: string[];
+  suggestedName: string;
+  suggestedStage: string;
+}
+
+export interface SyncedEmail {
+  messageId: string;
+  from: EmailContact;
+  to: EmailContact[];
+  cc: EmailContact[];
+  subject: string;
+  date: string;
+  textBody: string;
+  htmlBody: string;
+  snippet: string;
+  extractedContacts: Array<{ name: string; email: string }>;
+  dealSignal: DealSignal;
+  sentiment: 'positive' | 'neutral' | 'negative';
+}
+
+export interface EmailStatus {
+  connected: boolean;
+  email: string | null;
+}

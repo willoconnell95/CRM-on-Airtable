@@ -12,6 +12,7 @@ import { InteractionsPage } from '@/pages/InteractionsPage';
 import { PipelinePage } from '@/pages/PipelinePage';
 import { NetworkPage } from '@/pages/NetworkPage';
 import { ListsPage } from '@/pages/ListsPage';
+import { EmailPage } from '@/pages/EmailPage';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="contacts/:id" element={<ContactDetailPage />} />
         <Route path="companies" element={<CompaniesPage />} />
         <Route path="companies/:id" element={<CompanyDetailPage />} />
+        <Route path="email" element={<EmailPage />} />
         <Route path="interactions" element={<InteractionsPage />} />
         <Route path="pipeline" element={<PipelinePage />} />
         <Route path="network" element={<NetworkPage />} />
