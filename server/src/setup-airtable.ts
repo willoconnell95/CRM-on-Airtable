@@ -28,6 +28,18 @@ if (!apiKey || !baseId) {
   process.exit(1);
 }
 
+// Validate token format
+if (!apiKey.startsWith('pat')) {
+  console.log('WARNING: Your AIRTABLE_API_KEY does not start with "pat".');
+  console.log('The Metadata API requires a Personal Access Token (starts with "pat...").');
+  console.log('Legacy API keys (starting with "key") will NOT work.');
+  console.log('Create a new token at: https://airtable.com/create/tokens\n');
+}
+
+// Debug: show token prefix so user can verify it's loading
+console.log(`Token loaded: ${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}`);
+console.log(`Base ID loaded: ${baseId}\n`);
+
 interface AirtableField {
   name: string;
   type: string;
