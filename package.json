@@ -9,7 +9,7 @@
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
-    "setup:airtable": "cd server && npx ts-node src/setup-airtable.ts",
+    "setup:airtable": "cd server && npx tsx src/setup-airtable.ts",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install"
   },
   "devDependencies": {
