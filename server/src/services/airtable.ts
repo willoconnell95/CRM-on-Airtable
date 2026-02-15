@@ -22,6 +22,7 @@ export const Tables = {
   Relationships: 'Relationships',
   Activities: 'Activities',
   Users: 'Users',
+  PipelineStages: 'PipelineStages',
 } as const;
 
 type TableName = (typeof Tables)[keyof typeof Tables];

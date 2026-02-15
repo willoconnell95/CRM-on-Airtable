@@ -167,23 +167,30 @@ export interface NetworkData {
   }>;
 }
 
-export const DEAL_STAGES = [
-  'Prospecting',
-  'Qualification',
-  'Proposal',
-  'Negotiation',
-  'Closed Won',
-  'Closed Lost',
-] as const;
+export interface PipelineStage {
+  id?: string;
+  Name: string;
+  Order: number;
+  Color: string;
+  Weight: number;
+}
 
-export const DEAL_STAGE_COLORS: Record<string, string> = {
-  Prospecting: '#6366f1',
-  Qualification: '#8b5cf6',
-  Proposal: '#a855f7',
-  Negotiation: '#f59e0b',
-  'Closed Won': '#10b981',
-  'Closed Lost': '#ef4444',
-};
+// Fallback defaults — used only while the API response is loading
+export const DEFAULT_STAGES: PipelineStage[] = [
+  { Name: 'Prospecting', Order: 1, Color: '#6366f1', Weight: 0.1 },
+  { Name: 'Qualification', Order: 2, Color: '#8b5cf6', Weight: 0.25 },
+  { Name: 'Proposal', Order: 3, Color: '#a855f7', Weight: 0.5 },
+  { Name: 'Negotiation', Order: 4, Color: '#f59e0b', Weight: 0.75 },
+  { Name: 'Closed Won', Order: 5, Color: '#10b981', Weight: 1.0 },
+  { Name: 'Closed Lost', Order: 6, Color: '#ef4444', Weight: 0 },
+];
+
+// Kept for backward compat — derive from DEFAULT_STAGES
+export const DEAL_STAGES = DEFAULT_STAGES.map(s => s.Name);
+
+export const DEAL_STAGE_COLORS: Record<string, string> = Object.fromEntries(
+  DEFAULT_STAGES.map(s => [s.Name, s.Color])
+);
 
 export const INTERACTION_TYPES = ['email', 'meeting', 'call', 'note'] as const;
 

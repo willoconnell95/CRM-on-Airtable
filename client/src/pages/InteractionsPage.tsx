@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useInteractions, useCreateInteraction, useDeleteInteraction } from '@/hooks/useInteractions';
 import { useCreateDealFromInteraction } from '@/hooks/useEmail';
+import { useStages } from '@/hooks/useSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -11,6 +12,7 @@ import { PageLoader } from '@/components/common/LoadingSpinner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { formatDate, getSentimentColor } from '@/lib/utils';
 import type { Interaction } from '@/types';
+import { DEFAULT_STAGES } from '@/types';
 import { Plus, MessageSquare, Mail, Phone, Users, FileText, Trash2, Filter, Target } from 'lucide-react';
 
 const typeIcons: Record<string, any> = {
@@ -38,6 +40,8 @@ export function InteractionsPage() {
   const createInteraction = useCreateInteraction();
   const deleteInteraction = useDeleteInteraction();
   const createDeal = useCreateDealFromInteraction();
+  const { data: stages } = useStages();
+  const activeStages = stages || DEFAULT_STAGES;
 
   const [form, setForm] = useState({
     Type: 'note' as string,
@@ -250,11 +254,9 @@ export function InteractionsPage() {
             <div>
               <label className="mb-1 block text-sm font-medium">Stage</label>
               <Select value={dealForm.Stage} onChange={(e) => setDealForm({ ...dealForm, Stage: e.target.value })}>
-                <option value="Prospecting">Prospecting</option>
-                <option value="Qualification">Qualification</option>
-                <option value="Proposal">Proposal</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Closed Won">Closed Won</option>
+                {activeStages.map((s) => (
+                  <option key={s.Name} value={s.Name}>{s.Name}</option>
+                ))}
               </Select>
             </div>
             <div>

@@ -9,6 +9,7 @@ import {
   useBulkImportEmails,
   useCreateDealFromInteraction,
 } from '@/hooks/useEmail';
+import { useStages } from '@/hooks/useSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -18,6 +19,7 @@ import { PageLoader } from '@/components/common/LoadingSpinner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { formatDate, getSentimentColor } from '@/lib/utils';
 import type { SyncedEmail } from '@/types';
+import { DEFAULT_STAGES } from '@/types';
 import {
   Mail,
   MailPlus,
@@ -42,6 +44,8 @@ export function EmailPage() {
   const logInteraction = useLogEmailInteraction();
   const bulkImport = useBulkImportEmails();
   const createDeal = useCreateDealFromInteraction();
+  const { data: stages } = useStages();
+  const activeStages = stages || DEFAULT_STAGES;
 
   const [showConnect, setShowConnect] = useState(false);
   const [showDealForm, setShowDealForm] = useState(false);
@@ -428,11 +432,9 @@ export function EmailPage() {
             <div>
               <label className="mb-1 block text-sm font-medium">Stage</label>
               <Select value={dealForm.Stage} onChange={(e) => setDealForm({ ...dealForm, Stage: e.target.value })}>
-                <option value="Prospecting">Prospecting</option>
-                <option value="Qualification">Qualification</option>
-                <option value="Proposal">Proposal</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Closed Won">Closed Won</option>
+                {activeStages.map((s) => (
+                  <option key={s.Name} value={s.Name}>{s.Name}</option>
+                ))}
               </Select>
             </div>
             <div>

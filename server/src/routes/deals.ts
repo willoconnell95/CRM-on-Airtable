@@ -43,6 +43,33 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Default stages fallback
+const DEFAULT_STAGES = [
+  { Name: 'Prospecting', Order: 1, Color: '#6366f1', Weight: 0.1 },
+  { Name: 'Qualification', Order: 2, Color: '#8b5cf6', Weight: 0.25 },
+  { Name: 'Proposal', Order: 3, Color: '#a855f7', Weight: 0.5 },
+  { Name: 'Negotiation', Order: 4, Color: '#f59e0b', Weight: 0.75 },
+  { Name: 'Closed Won', Order: 5, Color: '#10b981', Weight: 1.0 },
+  { Name: 'Closed Lost', Order: 6, Color: '#ef4444', Weight: 0 },
+];
+
+async function fetchStages(): Promise<Array<{ Name: string; Order: number; Color: string; Weight: number }>> {
+  try {
+    const { records } = await getRecords(Tables.PipelineStages, {
+      sort: [{ field: 'Order', direction: 'asc' }],
+    });
+    if (records.length > 0) {
+      return records.map((r: any) => ({
+        Name: r.Name || '',
+        Order: r.Order ?? 0,
+        Color: r.Color || '#6366f1',
+        Weight: r.Weight ?? 0,
+      }));
+    }
+  } catch { /* table may not exist yet */ }
+  return DEFAULT_STAGES;
+}
+
 // GET /api/deals/pipeline
 router.get('/pipeline', async (req: Request, res: Response) => {
   try {
@@ -53,39 +80,37 @@ router.get('/pipeline', async (req: Request, res: Response) => {
       filterByFormula = `{Owner} = '${String(owner).replace(/'/g, "\\'")}'`;
     }
 
-    const { records } = await getRecords(Tables.Deals, {
-      filterByFormula,
-      sort: [{ field: 'Value', direction: 'desc' }],
-    });
+    const [{ records }, stages] = await Promise.all([
+      getRecords(Tables.Deals, {
+        filterByFormula,
+        sort: [{ field: 'Value', direction: 'desc' }],
+      }),
+      fetchStages(),
+    ]);
+
+    // Build weight map from dynamic stages
+    const stageWeights: Record<string, number> = {};
+    for (const s of stages) {
+      stageWeights[s.Name] = s.Weight;
+    }
 
     // Group by stage
     const pipeline: Record<string, any[]> = {};
-    const stages = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
-
-    for (const stage of stages) {
-      pipeline[stage] = [];
+    for (const s of stages) {
+      pipeline[s.Name] = [];
     }
 
+    const firstStage = stages[0]?.Name || 'Prospecting';
     for (const record of records) {
-      const stage = record.Stage || 'Prospecting';
+      const stage = record.Stage || firstStage;
       if (!pipeline[stage]) pipeline[stage] = [];
       pipeline[stage].push(record);
     }
 
-    // Calculate weighted pipeline values
-    const stageWeights: Record<string, number> = {
-      Prospecting: 0.1,
-      Qualification: 0.25,
-      Proposal: 0.5,
-      Negotiation: 0.75,
-      'Closed Won': 1.0,
-      'Closed Lost': 0,
-    };
-
     const summary = {
       totalValue: records.reduce((sum: number, r: any) => sum + (r.Value || 0), 0),
       weightedValue: records.reduce((sum: number, r: any) => {
-        const weight = stageWeights[r.Stage || 'Prospecting'] || 0;
+        const weight = stageWeights[r.Stage || firstStage] || 0;
         return sum + (r.Value || 0) * weight;
       }, 0),
       dealCount: records.length,

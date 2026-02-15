@@ -325,6 +325,15 @@ const TABLES_PHASE1: TableDefinition[] = [
       { name: 'Avatar', type: 'url' },
     ],
   },
+  {
+    name: 'PipelineStages',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      { name: 'Order', type: 'number', options: { precision: 0 } },
+      { name: 'Color', type: 'singleLineText' },
+      { name: 'Weight', type: 'number', options: { precision: 2 } },
+    ],
+  },
 ];
 
 const API_BASE = 'https://api.airtable.com/v0';

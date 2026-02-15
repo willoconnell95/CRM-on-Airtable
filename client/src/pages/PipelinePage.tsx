@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePipeline, useCreateDeal, useUpdateDeal } from '@/hooks/useDeals';
+import { useStages } from '@/hooks/useSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -9,17 +10,22 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageLoader } from '@/components/common/LoadingSpinner';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, GripVertical, Calendar, User, Target } from 'lucide-react';
-import { DEAL_STAGES, DEAL_STAGE_COLORS } from '@/types';
+import { Plus, GripVertical, Calendar, User } from 'lucide-react';
+import { DEFAULT_STAGES } from '@/types';
 
 export function PipelinePage() {
   const { data, isLoading } = usePipeline();
+  const { data: stages } = useStages();
   const createDeal = useCreateDeal();
   const updateDeal = useUpdateDeal();
   const [showCreate, setShowCreate] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
+
+  const activeStages = stages || DEFAULT_STAGES;
+  const firstStage = activeStages[0]?.Name || 'Prospecting';
+
   const [form, setForm] = useState({
-    Name: '', Stage: 'Prospecting', Value: '', Probability: '', 'Close Date': '', Description: '', Owner: '',
+    Name: '', Stage: firstStage, Value: '', Probability: '', 'Close Date': '', Description: '', Owner: '',
   });
 
   async function handleCreate(e: React.FormEvent) {
@@ -34,7 +40,7 @@ export function PipelinePage() {
       Owner: form.Owner,
     } as any);
     setShowCreate(false);
-    setForm({ Name: '', Stage: 'Prospecting', Value: '', Probability: '', 'Close Date': '', Description: '', Owner: '' });
+    setForm({ Name: '', Stage: firstStage, Value: '', Probability: '', 'Close Date': '', Description: '', Owner: '' });
   }
 
   function handleDragStart(dealId: string) {
@@ -73,23 +79,22 @@ export function PipelinePage() {
 
       {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {DEAL_STAGES.map((stage) => {
-          const deals = pipeline[stage] || [];
+        {activeStages.map((stage) => {
+          const deals = pipeline[stage.Name] || [];
           const stageValue = deals.reduce((sum: number, d: any) => sum + (d.Value || 0), 0);
-          const color = DEAL_STAGE_COLORS[stage];
 
           return (
             <div
-              key={stage}
+              key={stage.Name}
               className="flex w-72 shrink-0 flex-col rounded-lg bg-gray-100"
               onDragOver={handleDragOver}
-              onDrop={() => handleDrop(stage)}
+              onDrop={() => handleDrop(stage.Name)}
             >
               {/* Stage Header */}
               <div className="flex items-center justify-between p-3">
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-sm font-semibold">{stage}</span>
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.Color }} />
+                  <span className="text-sm font-semibold">{stage.Name}</span>
                   <Badge variant="secondary" className="text-xs">{deals.length}</Badge>
                 </div>
                 <span className="text-xs text-gray-500">{formatCurrency(stageValue)}</span>
@@ -166,8 +171,8 @@ export function PipelinePage() {
             <div>
               <label className="mb-1 block text-sm font-medium">Stage</label>
               <Select value={form.Stage} onChange={(e) => setForm({ ...form, Stage: e.target.value })}>
-                {DEAL_STAGES.map((stage) => (
-                  <option key={stage} value={stage}>{stage}</option>
+                {activeStages.map((stage) => (
+                  <option key={stage.Name} value={stage.Name}>{stage.Name}</option>
                 ))}
               </Select>
             </div>
