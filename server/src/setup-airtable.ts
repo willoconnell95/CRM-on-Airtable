@@ -17,8 +17,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-const apiKey = process.env.AIRTABLE_API_KEY;
-const baseId = process.env.AIRTABLE_BASE_ID;
+// Trim to remove Windows \r characters from .env values
+const apiKey = process.env.AIRTABLE_API_KEY?.trim();
+const baseId = process.env.AIRTABLE_BASE_ID?.trim();
 
 if (!apiKey || !baseId) {
   console.log('='.repeat(60));

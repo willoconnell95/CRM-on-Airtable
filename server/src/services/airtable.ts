@@ -4,8 +4,8 @@ import NodeCache from 'node-cache';
 
 dotenv.config({ path: '../.env' });
 
-const apiKey = process.env.AIRTABLE_API_KEY || '';
-const baseId = process.env.AIRTABLE_BASE_ID || '';
+const apiKey = (process.env.AIRTABLE_API_KEY || '').trim();
+const baseId = (process.env.AIRTABLE_BASE_ID || '').trim();
 
 Airtable.configure({ apiKey });
 const base = Airtable.base(baseId);
