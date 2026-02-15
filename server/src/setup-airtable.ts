@@ -37,9 +37,39 @@ if (!apiKey.startsWith('pat')) {
   console.log('Create a new token at: https://airtable.com/create/tokens\n');
 }
 
-// Debug: show token prefix so user can verify it's loading
+// Debug: show token details
 console.log(`Token loaded: ${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}`);
-console.log(`Base ID loaded: ${baseId}\n`);
+console.log(`Token length: ${apiKey.length}`);
+console.log(`Token char codes (first 10): ${[...apiKey.substring(0, 10)].map(c => c.charCodeAt(0)).join(',')}`);
+console.log(`Token char codes (last 5): ${[...apiKey.substring(apiKey.length - 5)].map(c => c.charCodeAt(0)).join(',')}`);
+console.log(`Base ID loaded: ${baseId}`);
+
+// Quick auth test before proceeding
+async function testAuth(): Promise<void> {
+  console.log('\nTesting auth with /meta/bases endpoint...');
+  try {
+    const testRes = await fetch('https://api.airtable.com/v0/meta/bases', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    console.log(`Auth test status: ${testRes.status}`);
+    if (testRes.ok) {
+      const data = await testRes.json();
+      console.log(`Auth works! Found ${data.bases?.length ?? 0} base(s)`);
+      for (const b of (data.bases || [])) {
+        console.log(`  - ${b.name} (${b.id})`);
+      }
+    } else {
+      const text = await testRes.text();
+      console.log(`Auth test failed: ${text}`);
+      console.log('\nYour token cannot authenticate at all.');
+      console.log('Please create a new token at https://airtable.com/create/tokens');
+      process.exit(1);
+    }
+  } catch (e: any) {
+    console.log(`Auth test error: ${e.message}`);
+  }
+  console.log('');
+}
 
 interface AirtableField {
   name: string;
@@ -349,6 +379,9 @@ async function main() {
   console.log('AIRTABLE AUTO-SETUP');
   console.log('='.repeat(60));
   console.log(`\nBase ID: ${baseId}\n`);
+
+  // Test auth first
+  await testAuth();
 
   // Check existing tables
   console.log('Checking existing tables...\n');
