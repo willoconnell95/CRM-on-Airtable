@@ -1,178 +1,472 @@
 /**
  * Airtable Schema Setup Script
  *
- * This script documents the required Airtable schema.
- * Since Airtable doesn't support programmatic table creation via the standard API,
- * this serves as a reference and validator.
+ * Automatically creates all required tables in your Airtable base
+ * using the Airtable Metadata API.
  *
- * To set up your Airtable base:
+ * Prerequisites:
  * 1. Create a new base in Airtable
- * 2. Create the tables below with the specified fields
- * 3. Add the base ID and API key to your .env file
+ * 2. Create a personal access token with scopes:
+ *    data.records:read, data.records:write, schema.bases:read, schema.bases:write
+ * 3. Add AIRTABLE_API_KEY and AIRTABLE_BASE_ID to your .env file
  *
- * Run this script to validate your setup: npm run setup:airtable
+ * Run: npm run setup:airtable
  */
 
 import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-import Airtable from 'airtable';
-
 const apiKey = process.env.AIRTABLE_API_KEY;
 const baseId = process.env.AIRTABLE_BASE_ID;
 
 if (!apiKey || !baseId) {
   console.log('='.repeat(60));
-  console.log('AIRTABLE SCHEMA SETUP GUIDE');
+  console.log('AIRTABLE SCHEMA SETUP');
   console.log('='.repeat(60));
   console.log('\nPlease set AIRTABLE_API_KEY and AIRTABLE_BASE_ID in .env\n');
+  process.exit(1);
 }
 
-console.log(`
-=== REQUIRED AIRTABLE SCHEMA ===
+interface AirtableField {
+  name: string;
+  type: string;
+  options?: any;
+}
 
-Create the following tables in your Airtable base:
+interface TableDefinition {
+  name: string;
+  fields: AirtableField[];
+}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Contacts
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Name              (Single line text) [Primary]
-  - Email             (Email)
-  - Phone             (Phone number)
-  - Company           (Link to Companies)
-  - Title             (Single line text)
-  - LinkedIn          (URL)
-  - Tags              (Multiple select) - Add options: prospect, customer, partner, investor, advisor
-  - Relationship Strength (Number, integer 0-100)
-  - Last Interaction Date (Date)
-  - Owner             (Single line text)
-  - Notes             (Long text)
-  - Avatar            (URL)
+// We need to create tables that have linked record fields in a specific order:
+// 1. First create tables without link fields (or tables that are link targets)
+// 2. Then add link fields afterward
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Companies
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Name              (Single line text) [Primary]
-  - Domain            (URL)
-  - Industry          (Single select) - Add options: Technology, Finance, Healthcare, Education, Retail, Manufacturing, Other
-  - Size              (Single select) - Add options: 1-10, 11-50, 51-200, 201-1000, 1001-5000, 5000+
-  - Location          (Single line text)
-  - Stage             (Single select) - Add options: Prospect, Active, Customer, Partner, Churned
-  - Tags              (Multiple select) - Add options: enterprise, smb, startup, strategic
-  - Relationship Strength (Number, integer 0-100)
-  - Description       (Long text)
-  - Logo              (URL)
+const TABLES_PHASE1: TableDefinition[] = [
+  {
+    name: 'Contacts',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      { name: 'Email', type: 'email' },
+      { name: 'Phone', type: 'phoneNumber' },
+      { name: 'Title', type: 'singleLineText' },
+      { name: 'LinkedIn', type: 'url' },
+      {
+        name: 'Tags',
+        type: 'multipleSelects',
+        options: {
+          choices: [
+            { name: 'prospect' },
+            { name: 'customer' },
+            { name: 'partner' },
+            { name: 'investor' },
+            { name: 'advisor' },
+          ],
+        },
+      },
+      { name: 'Relationship Strength', type: 'number', options: { precision: 0 } },
+      { name: 'Last Interaction Date', type: 'date', options: { dateFormat: { name: 'iso' } } },
+      { name: 'Owner', type: 'singleLineText' },
+      { name: 'Notes', type: 'multilineText' },
+      { name: 'Avatar', type: 'url' },
+    ],
+  },
+  {
+    name: 'Companies',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      { name: 'Domain', type: 'url' },
+      {
+        name: 'Industry',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'Technology' },
+            { name: 'Finance' },
+            { name: 'Healthcare' },
+            { name: 'Education' },
+            { name: 'Retail' },
+            { name: 'Manufacturing' },
+            { name: 'Other' },
+          ],
+        },
+      },
+      {
+        name: 'Size',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: '1-10' },
+            { name: '11-50' },
+            { name: '51-200' },
+            { name: '201-1000' },
+            { name: '1001-5000' },
+            { name: '5000+' },
+          ],
+        },
+      },
+      { name: 'Location', type: 'singleLineText' },
+      {
+        name: 'Stage',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'Prospect' },
+            { name: 'Active' },
+            { name: 'Customer' },
+            { name: 'Partner' },
+            { name: 'Churned' },
+          ],
+        },
+      },
+      {
+        name: 'Tags',
+        type: 'multipleSelects',
+        options: {
+          choices: [
+            { name: 'enterprise' },
+            { name: 'smb' },
+            { name: 'startup' },
+            { name: 'strategic' },
+          ],
+        },
+      },
+      { name: 'Relationship Strength', type: 'number', options: { precision: 0 } },
+      { name: 'Description', type: 'multilineText' },
+      { name: 'Logo', type: 'url' },
+    ],
+  },
+  {
+    name: 'Interactions',
+    fields: [
+      { name: 'Subject', type: 'singleLineText' },
+      {
+        name: 'Type',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'email' },
+            { name: 'meeting' },
+            { name: 'call' },
+            { name: 'note' },
+          ],
+        },
+      },
+      {
+        name: 'Date',
+        type: 'dateTime',
+        options: { dateFormat: { name: 'iso' }, timeFormat: { name: '24hour' }, timeZone: 'utc' },
+      },
+      { name: 'Participants', type: 'singleLineText' },
+      { name: 'Notes', type: 'multilineText' },
+      {
+        name: 'Sentiment',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'positive' },
+            { name: 'neutral' },
+            { name: 'negative' },
+          ],
+        },
+      },
+      { name: 'Auto-Captured', type: 'checkbox', options: { icon: 'check', color: 'greenBright' } },
+      { name: 'Created By', type: 'singleLineText' },
+    ],
+  },
+  {
+    name: 'Deals',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      {
+        name: 'Stage',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'Prospecting' },
+            { name: 'Qualification' },
+            { name: 'Proposal' },
+            { name: 'Negotiation' },
+            { name: 'Closed Won' },
+            { name: 'Closed Lost' },
+          ],
+        },
+      },
+      { name: 'Value', type: 'currency', options: { precision: 2, symbol: '$' } },
+      { name: 'Probability', type: 'percent', options: { precision: 0 } },
+      { name: 'Close Date', type: 'date', options: { dateFormat: { name: 'iso' } } },
+      { name: 'Owner', type: 'singleLineText' },
+      { name: 'Tags', type: 'multipleSelects', options: { choices: [] } },
+      { name: 'Description', type: 'multilineText' },
+    ],
+  },
+  {
+    name: 'Lists',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      {
+        name: 'Type',
+        type: 'singleSelect',
+        options: {
+          choices: [{ name: 'contacts' }, { name: 'companies' }],
+        },
+      },
+      { name: 'Filters', type: 'multilineText' },
+      { name: 'Owner', type: 'singleLineText' },
+      { name: 'Shared With', type: 'multilineText' },
+    ],
+  },
+  {
+    name: 'Relationships',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      { name: 'Connection Strength', type: 'number', options: { precision: 0 } },
+      { name: 'Shared Interactions', type: 'number', options: { precision: 0 } },
+      { name: 'Introduction Path', type: 'multilineText' },
+    ],
+  },
+  {
+    name: 'Activities',
+    fields: [
+      { name: 'Details', type: 'singleLineText' },
+      { name: 'User', type: 'singleLineText' },
+      {
+        name: 'Action Type',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'created' },
+            { name: 'updated' },
+            { name: 'deleted' },
+            { name: 'logged' },
+            { name: 'stage_changed' },
+          ],
+        },
+      },
+      {
+        name: 'Entity Type',
+        type: 'singleSelect',
+        options: {
+          choices: [
+            { name: 'contact' },
+            { name: 'company' },
+            { name: 'deal' },
+            { name: 'interaction' },
+            { name: 'list' },
+          ],
+        },
+      },
+      { name: 'Entity ID', type: 'singleLineText' },
+      { name: 'Entity Name', type: 'singleLineText' },
+      {
+        name: 'Timestamp',
+        type: 'dateTime',
+        options: { dateFormat: { name: 'iso' }, timeFormat: { name: '24hour' }, timeZone: 'utc' },
+      },
+    ],
+  },
+  {
+    name: 'Users',
+    fields: [
+      { name: 'Name', type: 'singleLineText' },
+      { name: 'Email', type: 'email' },
+      {
+        name: 'Role',
+        type: 'singleSelect',
+        options: {
+          choices: [{ name: 'admin' }, { name: 'member' }, { name: 'viewer' }],
+        },
+      },
+      { name: 'PasswordHash', type: 'multilineText' },
+      { name: 'Avatar', type: 'url' },
+    ],
+  },
+];
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Interactions
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Subject           (Single line text) [Primary]
-  - Type              (Single select) - Options: email, meeting, call, note
-  - Date              (Date with time)
-  - Contact           (Link to Contacts)
-  - Company           (Link to Companies)
-  - Participants      (Single line text)
-  - Notes             (Long text, enable rich text)
-  - Sentiment         (Single select) - Options: positive, neutral, negative
-  - Auto-Captured     (Checkbox)
-  - Created By        (Single line text)
+const API_BASE = 'https://api.airtable.com/v0';
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Deals
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Name              (Single line text) [Primary]
-  - Company           (Link to Companies)
-  - Contacts          (Link to Contacts)
-  - Stage             (Single select) - Options: Prospecting, Qualification, Proposal, Negotiation, Closed Won, Closed Lost
-  - Value             (Currency, USD)
-  - Probability       (Percent)
-  - Close Date        (Date)
-  - Owner             (Single line text)
-  - Tags              (Multiple select)
-  - Description       (Long text)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Lists
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Name              (Single line text) [Primary]
-  - Type              (Single select) - Options: contacts, companies
-  - Filters           (Long text) - JSON string
-  - Owner             (Single line text)
-  - Shared With       (Multiple select or Long text)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Relationships
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Name              (Formula: concatenate Person A & Person B names) [Primary]
-  - Person A          (Link to Contacts)
-  - Person B          (Link to Contacts)
-  - Connection Strength (Number, integer 0-100)
-  - Shared Interactions (Number, integer)
-  - Introduction Path (Long text)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Activities
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Details           (Single line text) [Primary]
-  - User              (Single line text)
-  - Action Type       (Single select) - Options: created, updated, deleted, logged, stage_changed
-  - Entity Type       (Single select) - Options: contact, company, deal, interaction, list
-  - Entity ID         (Single line text)
-  - Entity Name       (Single line text)
-  - Timestamp         (Date with time)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLE: Users
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fields:
-  - Name              (Single line text) [Primary]
-  - Email             (Email)
-  - Role              (Single select) - Options: admin, member, viewer
-  - PasswordHash      (Long text)
-  - Avatar            (URL)
-`);
-
-// Validate connection if credentials are provided
-if (apiKey && baseId) {
-  console.log('\nValidating Airtable connection...\n');
-
-  Airtable.configure({ apiKey });
-  const base = Airtable.base(baseId);
-
-  const tablesToCheck = ['Contacts', 'Companies', 'Interactions', 'Deals', 'Lists', 'Relationships', 'Activities', 'Users'];
-
-  Promise.all(
-    tablesToCheck.map(async (tableName) => {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          base(tableName)
-            .select({ maxRecords: 1 })
-            .firstPage((err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-        });
-        console.log(`  ✓ ${tableName} - OK`);
-        return true;
-      } catch (err: any) {
-        console.log(`  ✗ ${tableName} - NOT FOUND or ERROR: ${err.message}`);
-        return false;
-      }
-    })
-  ).then((results) => {
-    const allOk = results.every(Boolean);
-    console.log(`\n${allOk ? '✓ All tables validated!' : '✗ Some tables are missing. Please create them in Airtable.'}`);
-    process.exit(allOk ? 0 : 1);
+async function apiRequest(url: string, method: string, body?: any): Promise<any> {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
-} else {
-  console.log('\nSet AIRTABLE_API_KEY and AIRTABLE_BASE_ID in .env, then re-run to validate.');
-  process.exit(0);
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Airtable API ${method} ${url} failed (${res.status}): ${text}`);
+  }
+
+  return res.json();
 }
+
+async function getExistingTables(): Promise<Map<string, string>> {
+  const data = await apiRequest(`${API_BASE}/meta/bases/${baseId}/tables`, 'GET');
+  const map = new Map<string, string>();
+  for (const table of data.tables) {
+    map.set(table.name, table.id);
+  }
+  return map;
+}
+
+async function createTable(def: TableDefinition): Promise<string> {
+  const body = {
+    name: def.name,
+    fields: def.fields,
+  };
+  const data = await apiRequest(`${API_BASE}/meta/bases/${baseId}/tables`, 'POST', body);
+  return data.id;
+}
+
+async function addFieldToTable(tableId: string, field: AirtableField): Promise<void> {
+  await apiRequest(`${API_BASE}/meta/bases/${baseId}/tables/${tableId}/fields`, 'POST', field);
+}
+
+// Small delay to avoid rate limits
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function main() {
+  console.log('='.repeat(60));
+  console.log('AIRTABLE AUTO-SETUP');
+  console.log('='.repeat(60));
+  console.log(`\nBase ID: ${baseId}\n`);
+
+  // Check existing tables
+  console.log('Checking existing tables...\n');
+  const existing = await getExistingTables();
+
+  if (existing.size > 0) {
+    console.log('Found existing tables:');
+    for (const name of existing.keys()) {
+      console.log(`  - ${name}`);
+    }
+    console.log('');
+  }
+
+  // Phase 1: Create tables (without link fields)
+  const tableIds = new Map<string, string>();
+
+  for (const def of TABLES_PHASE1) {
+    if (existing.has(def.name)) {
+      console.log(`  ✓ ${def.name} - already exists`);
+      tableIds.set(def.name, existing.get(def.name)!);
+    } else {
+      try {
+        const id = await createTable(def);
+        tableIds.set(def.name, id);
+        console.log(`  ✓ ${def.name} - created`);
+        await delay(300);
+      } catch (err: any) {
+        console.log(`  ✗ ${def.name} - ERROR: ${err.message}`);
+        process.exit(1);
+      }
+    }
+  }
+
+  // Phase 2: Add linked record fields
+  // These need the table IDs from phase 1
+  console.log('\nAdding linked record fields...\n');
+
+  const contactsId = tableIds.get('Contacts')!;
+  const companiesId = tableIds.get('Companies')!;
+
+  const linkFields: Array<{ tableName: string; tableId: string; field: AirtableField }> = [
+    {
+      tableName: 'Contacts',
+      tableId: contactsId,
+      field: {
+        name: 'Company',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: companiesId },
+      },
+    },
+    {
+      tableName: 'Interactions',
+      tableId: tableIds.get('Interactions')!,
+      field: {
+        name: 'Contact',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: contactsId },
+      },
+    },
+    {
+      tableName: 'Interactions',
+      tableId: tableIds.get('Interactions')!,
+      field: {
+        name: 'Company',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: companiesId },
+      },
+    },
+    {
+      tableName: 'Deals',
+      tableId: tableIds.get('Deals')!,
+      field: {
+        name: 'Company',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: companiesId },
+      },
+    },
+    {
+      tableName: 'Deals',
+      tableId: tableIds.get('Deals')!,
+      field: {
+        name: 'Contacts',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: contactsId },
+      },
+    },
+    {
+      tableName: 'Relationships',
+      tableId: tableIds.get('Relationships')!,
+      field: {
+        name: 'Person A',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: contactsId },
+      },
+    },
+    {
+      tableName: 'Relationships',
+      tableId: tableIds.get('Relationships')!,
+      field: {
+        name: 'Person B',
+        type: 'multipleRecordLinks',
+        options: { linkedTableId: contactsId },
+      },
+    },
+  ];
+
+  for (const link of linkFields) {
+    // Skip if the table was pre-existing (fields may already be there)
+    if (existing.has(link.tableName)) {
+      console.log(`  ~ ${link.tableName}.${link.field.name} - skipped (table pre-existed)`);
+      continue;
+    }
+    try {
+      await addFieldToTable(link.tableId, link.field);
+      console.log(`  ✓ ${link.tableName}.${link.field.name} - added`);
+      await delay(300);
+    } catch (err: any) {
+      if (err.message.includes('already exists') || err.message.includes('duplicate')) {
+        console.log(`  ~ ${link.tableName}.${link.field.name} - already exists`);
+      } else {
+        console.log(`  ✗ ${link.tableName}.${link.field.name} - ERROR: ${err.message}`);
+      }
+    }
+  }
+
+  console.log('\n' + '='.repeat(60));
+  console.log('Setup complete! You can now run: npm run dev');
+  console.log('='.repeat(60));
+}
+
+main().catch((err) => {
+  console.error('\nSetup failed:', err.message);
+  process.exit(1);
+});
